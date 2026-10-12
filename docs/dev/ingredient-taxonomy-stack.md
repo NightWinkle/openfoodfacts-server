@@ -9,6 +9,7 @@ Each branch contains one commit and depends on the preceding branch.
 | `fix/ingredient-conjunctions` | `fix/taxonomy-stopwords` | Preserve declared compounds and generated spelling variants, split ordinary conjunctions, preserve percentages and children, prevent parent context from replacing a precise child with its ancestor. |
 | `fix/ingredient-concentrate-aliases` | `fix/ingredient-conjunctions` | Declare English juice-concentrate synonyms explicitly so they are not confused with juice made from concentrate after stopword normalization. |
 | `feat/shared-petfood-ingredients` | `fix/ingredient-concentrate-aliases` | Transfer petfood definitions/translations to the food source and restore the petfood source symlink. |
+| `fix/ingredient-compound-labels` | `feat/shared-petfood-ingredients` | Recognize labelled compounds using the existing label patterns, remove repeated labels, and preserve label scope when splitting coordinations. |
 
 ## Integration decisions
 
@@ -68,13 +69,45 @@ On OPFF, some previously recognized IDs disappear from 17 product trees.
 This includes flattened additive headings, more specific ingredient identities,
 and remaining newline/heading problems. In particular, `4047777023111` and
 `0005274277490` can join ingredient/analytical sections into unknown spans.
-Organic markers in `3560070260645` still split a meat-and-derivatives compound.
-These cases require the separate recipe/heading/newline fixes retained on the
+The ingredient/analytical section cases require the separate recipe/heading/newline fixes retained on the
 original branch, followed by another comparison before production reanalysis.
 The origin example `3560071504397` recognizes 28 of 47 nodes; recipe headings
 and some by-product fragments still require structural parsing improvements.
 OPFF allergen tags change on 530 products after including food definitions;
 these outputs also require review before rollout.
+
+## Compound labels follow-up
+
+Label extraction is shared between compound lookup and ingredient analysis.
+Repeated label spellings are removed and stored once. A declared compound stays
+intact when every coordinated part has the same labels. Different labels keep
+the parts separate; labels from one part do not leak into the next part.
+The existing parenthetical labels and standalone product-label handling remain.
+
+On `3560070260645`, both `Viandes* et sous-produits animaux*` occurrences now
+canonicalize to `en:meat-and-animal-derivatives`, labelled `en:organic`, with
+organic chicken/poultry children retaining their explicit 4% values.
+Recipe headings and estimated percentages across recipes still need separate work.
+
+The follow-up adds 34 assertions, bringing the five focused files to 122 passing
+assertions for OFF/OPFF with hash seeds 0 and 17. Two existing expectations only
+remove duplicate organic labels. The complete unit run executes 7,055 assertions
+in 101 files, with the same 44 failing files as the parent in this offline setup.
+After updating those two expectations, the nearby parser suites retain exactly
+the parent's failures.
+
+Compared with the parent stack, the replay changes 4 of 1,000 OFF trees and
+23 of 2,807 OPFF trees, with no product errors. OFF canonical ingredient IDs are
+unchanged; OPFF ingredient tags change on 6 products. Additive, allergen and trace
+tags are unchanged in both corpora. Changes include label deduplication, removal
+of labels that previously leaked to following ingredients, and three lists that
+now retain their turkey ingredient in multi-part coordinations.
+
+The conservative scope rule also splits `3428460077825` and `4311501751923`, where
+only the last part is explicitly labelled organic. The latter has an unknown
+German animal-derivatives spelling. A trailing marker may have been intended to
+qualify the whole compound; the parser does not infer that broader scope.
+These two cases need review before rollout.
 
 ## Scope
 

@@ -1261,6 +1261,29 @@ sub _canonicalize_ingredient ($lc, $text, $exists_ref = undef) {
 	return $id;
 }
 
+# Share label removal between structural lookups and final ingredient analysis.
+sub _extract_ingredient_labels ($lc, $ingredient) {
+	my @ingredient_labels;
+	my $last_label;
+	# Uncomposed labels come first so that "fair-trade organic" yields both labels.
+	foreach my $labelid (reverse @labels) {
+		my $regexp = $labels_regexps{$lc}{$labelid};
+		next unless defined $regexp;
+		while ($ingredient =~ compiled_regexp('\b(' . $regexp . ')\b')) {
+			$last_label = $1;
+			my $before_the_label = $`;
+			my $after_the_label = $';
+			$before_the_label = remove_stopwords_from_start_or_end_of_string('labels', $lc, $before_the_label);
+			# Keep stopwords after the label: "cacao biologique de Madagascar" needs "de".
+			$ingredient = $before_the_label . ' ' . $after_the_label;
+			push @ingredient_labels, $labelid;
+		}
+	}
+	$ingredient =~ s/\s+/ /g;
+	$ingredient =~ s/^\s+|\s+$//g;
+	return ($ingredient, [uniq(@ingredient_labels)], $last_label);
+}
+
 sub parse_processing_from_ingredient ($ingredients_lc, $ingredient) {
 	my $ingredient_recognized = 0;
 	my @processings = ();
@@ -2429,47 +2452,49 @@ Text to analyze
 
 		my @ingredients = ();
 
-		# 2 known ingredients separated by "and" ? -> split them in 2 ingredients
+		# Split known ingredients separated by "and", preserving declared compounds.
 		# We do not split if we found only 1 ingredient, as the "and" could be part of the processing
 		# e.g. "cut and fried potatoes" should not be split to "cut" + "fried potatoes"
 		if ($before =~ /$and/i) {
 
-			my $ingredient = $before;
-			my $ingredient1 = $`;
-			my $ingredient2 = $';
+			my @ingredient_parts = split(/$and/i, $before);
 
 			# check if the whole ingredient is an ingredient
-			my $compound_name = $before;
+			my ($compound_name) = _extract_ingredient_labels($ingredients_lc, $before);
 			$compound_name =~ s/${\compiled_regexp('\s' . $percent_or_quantity_regexp . '$')}//;
 			my $canon_ingredient = _canonicalize_ingredient($ingredients_lc, $compound_name);
+			my @part_labels = map {
+				my (undef, $part_labels_ref) = _extract_ingredient_labels($ingredients_lc, $_);
+				join(',', sort @{$part_labels_ref});
+			} @ingredient_parts;
+			my $same_labels = (scalar uniq(@part_labels) == 1);
 
-			if (not exists_taxonomy_tag("ingredients", $canon_ingredient)) {
+			# A label on only one part must not be promoted to the whole compound.
+			if ((not $same_labels) or (not exists_taxonomy_tag("ingredients", $canon_ingredient))) {
 
 				$debug_ingredients
 					and $log->debug(
 					"parse_ingredient_text - and - whole ingredient >$before< containing 'and' is unknown ingredient")
 					if $log->is_debug();
 
-				# Create a copy of $ingredients1 and $ingredients2, as we will remove percents to $ingredientX,
-				# but we will push $ingredientX_orig if it is a known ingredient after we remove the processing
-				my $ingredient1_orig = $ingredient1;
-				my $ingredient2_orig = $ingredient2;
-
 				my $ingredients_recognized = 0;
 
-				foreach ($ingredient1, $ingredient2) {
+				foreach my $part (@ingredient_parts) {
+					my ($part_name) = _extract_ingredient_labels($ingredients_lc, $part);
 					# Remove percent
-					$_ =~ s/${\compiled_regexp('\s' . $percent_or_quantity_regexp . '$')}//;
+					$part_name =~ s/${\compiled_regexp('\s' . $percent_or_quantity_regexp . '$')}//;
 
 					# Check if we recognize the ingredient
-					(undef, undef, undef, my $is_recognized) = parse_processing_from_ingredient($ingredients_lc, $_);
+					(undef, undef, undef, my $is_recognized)
+						= parse_processing_from_ingredient($ingredients_lc, $part_name);
 
 					$ingredients_recognized += $is_recognized;
 				}
-				# Did we recognize the two ingredients?
-				if ($ingredients_recognized == 2) {
+				if (   ($ingredients_recognized == scalar @ingredient_parts)
+					or ((not $same_labels) and ($ingredients_recognized >= 1)))
+				{
 
-					push @ingredients, ($ingredient1_orig, $ingredient2_orig);
+					push @ingredients, @ingredient_parts;
 				}
 				else {
 					$debug_ingredients
@@ -2503,6 +2528,7 @@ Text to analyze
 		}
 
 		my $i = 0;    # Counter for ingredients, used to know if it is the last ingredient
+		my $parenthetical_labels = $labels;
 
 		# Note: we use a while loop instead of a foreach as we may modify the array @ingredients when we split ingredients
 		$debug_ingredients
@@ -2511,6 +2537,7 @@ Text to analyze
 			if $log->is_debug();
 		while (@ingredients) {
 
+			$labels = $parenthetical_labels;
 			my $ingredient = shift @ingredients;
 			chomp($ingredient);
 
@@ -2609,57 +2636,20 @@ Text to analyze
 					}
 				}
 
-				# Check if we have an ingredient + some specific labels like organic and fair-trade.
-				# If we do, remove the label from the ingredient and add the label to labels
-				if (defined $labels_regexps{$ingredients_lc}) {
-					# start with uncomposed labels first, so that we decompose "fair-trade organic" into "fair-trade, organic"
-					foreach my $labelid (reverse @labels) {
-						my $regexp = $labels_regexps{$ingredients_lc}{$labelid};
-						#$debug_ingredients and $log->trace("checking labels regexps",
-						#	{ingredient => $ingredient, labelid => $labelid, regexp => $regexp})
-						#	if $log->is_trace();
-						if ((defined $regexp) and ($ingredient =~ compiled_regexp('\b(' . $regexp . ')\b'))) {
-
-							my $label = $1;
-
-							if (defined $labels) {
-								$labels .= ", " . $labelid;
-							}
-							else {
-								$labels = $labelid;
-							}
-
-							# Remove stopwords after or before the label
-							# e.g. "Abricots from sustainable farming" -> "Abricots" + "from" + "sustainable farming" -> "Abricots"
-							my $before_the_label = $`;
-							my $after_the_label = $';
-
-							$before_the_label
-								= remove_stopwords_from_start_or_end_of_string("labels", $ingredients_lc,
-								$before_the_label);
-
-							# Don't remove stopwords on $after_the_label, as it can remove words we want to keep
-							# e.g. "Cacao issu de l'agriculture biologique de Madagascar": need to keep "de" in "Cacao de Madagascar"
-
-							$ingredient = $before_the_label . ' ' . $after_the_label;
-							$ingredient =~ s/\s+/ /g;
-
-							# If we matched a label, but no ingredient
-							if ($ingredient =~ /^\s*$/) {
-								# If the ingredient is just the label + sub ingredients (e.g. "vegan (orange juice)")
-								# then we replace the now empty ingredient by the sub ingredients
-								if ((defined $between) and ($between !~ /^\s*$/)) {
-									$ingredient = $between;
-									$between = '';
-								}
-								else {
-									# Otherwise we leave the label in place, so that it can be parsed as a non-ingredient specific label
-									$ingredient = $label;
-								}
-							}
-							$debug_ingredients
-								and $log->debug("found label", {ingredient => $ingredient, labelid => $labelid})
-								if $log->is_debug();
+				my ($ingredient_without_labels, $ingredient_labels_ref, $last_label)
+					= _extract_ingredient_labels($ingredients_lc, $ingredient);
+				if (@{$ingredient_labels_ref}) {
+					$labels
+						= join(', ', uniq((defined $labels ? split(/,\s*/, $labels) : ()), @{$ingredient_labels_ref}));
+					$ingredient = $ingredient_without_labels;
+					if ($ingredient eq '') {
+						# A standalone label can qualify sub-ingredients or the product itself.
+						if ((defined $between) and ($between =~ /\S/)) {
+							$ingredient = $between;
+							$between = '';
+						}
+						else {
+							$ingredient = $last_label;
 						}
 					}
 				}
