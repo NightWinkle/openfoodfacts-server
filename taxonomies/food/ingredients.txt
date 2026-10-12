@@ -10021,6 +10021,42 @@ pl: Zwierzę, zwierzęta, zwierzęcy, zwierzęca, zwierzęce
 pt: Animal
 sv: djur
 
+< en: animal
+en: Meat and animal derivatives
+da: Kød og dyriske biprodukter
+de: Fleisch und tierische Nebenerzeugnisse
+el: Κρέας και παράγωγα ζώων
+et: Liha ja loomsete toiduainete saadused
+fi: Liha ja eläinperäiset jalosteet
+fr: Viande et sous-produits animaux
+hr: Meso i životinjski proizvodi
+it: Carne e sottoprodotti di origine animale
+lv: Gaļa un dzīvnieku produkti
+nl: Vlees en dierlijke bijproducten
+no: Kjøtt og dyriske biprodukter
+pt: Carne e subprodutos de origem animal
+ru: Мясо и продукты животного происхождения
+sl: Meso in živalski izdelki
+sv: Kött och djuriska biprodukter
+vegan:en: no
+vegetarian:en: no
+
+< en: animal
+en: Animal derivatives, Animal by-products
+fr: Sous-produits animaux, Sous produits animaux, Sous-produits d'origine animale
+vegan:en: no
+vegetarian:en: no
+
+< en: Animal derivatives
+en: Fish derivatives, Fish by-products
+fr: Sous-produits de poissons, Sous-produits de poisson, Sous produits de poissons
+
+< en: animal
+en: Fish and fish derivatives, Fish and fish by-products
+fr: Poissons et sous-produits de poissons, Poisson et sous-produits de poisson
+vegan:en: no
+vegetarian:en: no
+
 en: meat
 bg: месо
 bs: meso
@@ -18910,6 +18946,21 @@ ciqual_food_name:en: Salmon oil
 usda_fdc_code:en: 172343
 usda_ndb_code:en: 4593
 usda_ndb_name:en: Fish oil, salmon
+da: Lakseolie
+de: Lachsöl
+el: Έλαιο σολομού
+et: Lõheõli
+fi: Lohiöljy
+fr: Huile de saumon
+hr: Lososovo ulje
+it: Olio di salmone
+lv: Laša ella
+nl: Zalmolie
+no: Lakseolje
+pt: Óleo de salmão
+ru: Лососевый жир
+sl: Lososovo olje
+sv: Laxolja
 
 < en: oil
 en: marine oil
@@ -52542,6 +52593,25 @@ pl: pasta z tamaryndowca
 #                                     V E G E T A B L E S     S E C T I O N
 #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+en: Derivatives of vegetable origin
+da: Planteprodukter
+de: Pflanzliche Nebenerzeugnisse
+el: Παράγωγα φυτικής προέλευσης
+et: Taimsete päritolu saadused
+fi: Kasviperäiset jalosteet
+fr: Sous-produits d'origine végétale
+hr: Biljni proizvodi
+it: Sottoprodotti di origine vegetale
+lv: Augu produkti
+nl: Plantafval
+no: Planteprodukter
+pt: Subprodutos de origem vegetal
+ru: Продукты растительного происхождения
+sl: Rastlinski izdelki
+sv: Växtprodukter
+vegan:en: yes
+vegetarian:en: yes
 
 en: vegetable, vegetables
 bg: зеленчук, зеленчуци
@@ -90975,6 +91045,16 @@ vegan:en: no
 vegetarian:en: no
 wikidata:en: Q25364
 wikipedia:en: https://en.wikipedia.org/wiki/Crustacean
+
+< en: crustacean
+en: krill
+xx: krill
+et: Krilli
+fi: Krilli
+hr: krila
+lv: Krila
+ru: криля
+sl: Krilova
 
 < en: crustacean
 fr: extrait de crustacé
